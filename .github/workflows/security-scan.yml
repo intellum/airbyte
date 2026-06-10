@@ -1,0 +1,43 @@
+# Drop-in replacement for a repo's local security-scan.yml once the reusable
+# workflow is hosted in intellum-security (.github/workflows/sast-reusable.yml).
+#
+# Copy this to .github/workflows/security-scan.yml in the consuming repo.
+# The repo defines its OWN triggers here (a reusable workflow inherits the
+# caller's event), then delegates all scan logic to the hosted workflow.
+#
+# ── Pinning ──────────────────────────────────────────────────────────────────
+#   @sast-prod  → stable, runs across production repos
+#   @sast-test  → validation track; point intellum-security (and any sandbox) here
+# Tags are namespaced (sast-*) so they don't collide with intellum-security's
+# own git tags. Global ignores are baked into the workflow, so there's no extra
+# ref to keep in sync — a tag move ships the workflow AND its ignores together.
+#
+# Prerequisite: intellum-security → Settings → Actions → General → Access must
+# allow "Accessible from repositories owned by the organization".
+
+name: SAST Security Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # To also scan pushes to main, uncomment:
+  # push:
+  #   branches: [main, master]
+
+# Inherited by the called workflow; it needs these to comment on the PR.
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  security-scan:
+    uses: intellum/intellum-security/.github/workflows/sast-reusable.yml@sast-prod
+    secrets: inherit
+    with:
+      # All inputs are optional; shown here with their defaults.
+      severity_threshold: critical-high   # or 'critical'
+      enable_semgrep: true
+      enable_trufflehog: true
+      enable_trivy: true
+      # semgrep_config_path: scanning/sast/semgrep/rules   # optional extra rules
